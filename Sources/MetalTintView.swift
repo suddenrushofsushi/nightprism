@@ -3,10 +3,8 @@ import Metal
 import MetalKit
 import simd
 
-/// NSView backed by a CAMetalLayer. v1 draws a solid color (black at variable alpha) via a
-/// full-screen-triangle fragment shader. The pipeline is intentionally over-built for v1
-/// so v2+ effects (blur, gradient, animated noise, color grading) can drop into Shaders.metal
-/// without restructuring the view.
+/// On-demand Metal tint rendering. Warmth is an experimental color overlay, not a
+/// color-temperature transform of the pixels underneath.
 final class MetalTintView: NSView, @preconcurrency CALayerDelegate {
 
     private let device: MTLDevice
@@ -15,7 +13,6 @@ final class MetalTintView: NSView, @preconcurrency CALayerDelegate {
     private let metalLayer = CAMetalLayer()
 
     private var tintColor: SIMD4<Float> = .init(0, 0, 0, 0.5)
-    private var displayLink: CADisplayLink?
 
     override init(frame frameRect: NSRect) {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -46,8 +43,15 @@ final class MetalTintView: NSView, @preconcurrency CALayerDelegate {
     // MARK: - Public API
 
     func setOpacity(_ value: Double) {
+        setAppearance(opacity: value, warmth: 0)
+    }
+
+    func setAppearance(opacity value: Double, warmth: Double) {
         let clamped = Float(max(0, min(1, value)))
-        tintColor = SIMD4<Float>(0, 0, 0, clamped)
+        let warm = Float(max(0, min(1, warmth))) * (1 - clamped)
+        let color = SIMD4<Float>(0.28 * warm, 0.10 * warm, 0, clamped)
+        guard color != tintColor else { return }
+        tintColor = color
         needsDisplay = true
     }
 
@@ -58,7 +62,12 @@ final class MetalTintView: NSView, @preconcurrency CALayerDelegate {
         if let scale = window?.backingScaleFactor {
             metalLayer.contentsScale = scale
         }
-        startDisplayLink()
+        updateDrawableSize()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        metalLayer.contentsScale = window?.backingScaleFactor ?? 1
         updateDrawableSize()
     }
 
@@ -80,13 +89,6 @@ final class MetalTintView: NSView, @preconcurrency CALayerDelegate {
     }
 
     // MARK: - Drawing
-
-    private func startDisplayLink() {
-        // For v1 we redraw on demand. A display link is wired up but paused — flip it on once
-        // animated shaders land. Left here so the scaffolding for time-varying effects is obvious.
-        displayLink?.invalidate()
-        displayLink = nil
-    }
 
     func display(_ layer: CALayer) {
         render()

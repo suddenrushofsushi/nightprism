@@ -6,6 +6,8 @@ final class OverlayWindowController: NSWindowController, NSWindowDelegate, Overl
     private let id: Overlay.ID
     private weak var store: OverlayStore?
     private let tintView: MetalTintView
+    private let visibilityMask = CAShapeLayer()
+    private var isApplying = false
 
     init(overlay: Overlay, store: OverlayStore) {
         self.id = overlay.id
@@ -22,7 +24,7 @@ final class OverlayWindowController: NSWindowController, NSWindowDelegate, Overl
 
         panel.delegate = self
         panel.contentView = tintView
-        tintView.setOpacity(overlay.opacity)
+        visibilityMask.fillColor = NSColor.black.cgColor
         apply(overlay)
     }
 
@@ -30,13 +32,44 @@ final class OverlayWindowController: NSWindowController, NSWindowDelegate, Overl
 
     func apply(_ overlay: Overlay) {
         guard let window else { return }
+        isApplying = true
+        defer { isApplying = false }
         if window.frame != overlay.frame {
             window.setFrame(overlay.frame, display: true, animate: false)
         }
-        window.isMovable = !overlay.locked
-        tintView.setOpacity(overlay.opacity)
-        // Resize the metal view's drawable to track the window's content size.
+        let canEdit = overlay.isEditing && !overlay.locked && overlay.isEnabled
+        window.ignoresMouseEvents = !canEdit
+        window.isMovable = canEdit
+        if canEdit {
+            window.styleMask.insert(.resizable)
+        } else {
+            window.styleMask.remove(.resizable)
+        }
+        tintView.setAppearance(opacity: overlay.opacity, warmth: overlay.warmth)
         tintView.frame = window.contentView?.bounds ?? tintView.frame
+        tintView.layer?.borderColor = NSColor.controlAccentColor.cgColor
+        tintView.layer?.borderWidth = canEdit ? 2 : 0
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if let visibleRects = overlay.visibleRects {
+            let path = CGMutablePath()
+            for rect in visibleRects {
+                path.addRect(rect.offsetBy(dx: -overlay.frame.minX, dy: -overlay.frame.minY))
+            }
+            visibilityMask.frame = tintView.bounds
+            visibilityMask.path = path
+            tintView.layer?.mask = visibilityMask
+        } else {
+            tintView.layer?.mask = nil
+        }
+        CATransaction.commit()
+
+        if overlay.shouldShow {
+            if !window.isVisible { window.orderFrontRegardless() }
+        } else {
+            window.orderOut(nil)
+        }
     }
 
     // MARK: NSWindowDelegate
@@ -48,14 +81,15 @@ final class OverlayWindowController: NSWindowController, NSWindowDelegate, Overl
     }
 
     private func reportFrame() {
-        guard let frame = window?.frame else { return }
+        guard !isApplying, let window, !window.ignoresMouseEvents else { return }
+        let frame = window.frame
         store?.handleFrameChange(id: id, frame: frame)
     }
 }
 
 /// Borderless floating panel that sits above normal windows on every Space.
 final class OverlayPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
+    override var canBecomeKey: Bool { !ignoresMouseEvents }
     override var canBecomeMain: Bool { false }
 
     override init(

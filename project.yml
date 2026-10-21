@@ -37,6 +37,7 @@ targets:
         LSUIElement: true   # Menubar-only app; no Dock icon, no main menu hijack.
         NSHumanReadableCopyright: "© 2026 Craig Waterman"
         NSHighResolutionCapable: true
+        NSScreenCaptureUsageDescription: "Nightprism uses window information to attach dimming overlays to the windows you choose. This prototype does not record or save screen images."
     entitlements:
       path: Resources/Nightprism.entitlements
       properties:

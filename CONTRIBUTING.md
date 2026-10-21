@@ -37,14 +37,19 @@ swift format lint --strict --recursive Sources Tests
 Before reporting a change that affects app behavior, run the app and check the relevant behavior. The following areas need real interactive checks:
 
 - Add an overlay from the menu bar.
-- Change its opacity.
-- Drag and resize it.
-- Lock it and confirm it cannot move.
-- Quit and relaunch, then confirm saved state persists.
-- Check behavior across Spaces and multiple displays.
+- Close and reopen the persistent controls window from the menu bar; keep it open while interacting with the target app.
+- Select a Safari/Zoom target after granting window access; verify click-through by default.
+- Compare dimming and warmth on a white background, dark text, and already-dark regions.
+- Enter editing mode, crop the rectangle, then confirm its crop scales as the target resizes.
+- Lock it and confirm neither manual movement nor resizing is possible.
+- Move another app over the target; keep exposed background content dimmed without tinting the covering app.
+- Check minimize, restore, close, pause-all, per-overlay disable, and mixed-scale monitor movement.
+- Quit/relaunch: free-standing state persists; foreign-window attachments must be selected again.
 
 ## Changes and issues
 
-The product roadmap is undecided. Open a GitHub issue to report a bug or propose a feature. Discuss feature intent in an issue before starting substantial work so the scope can be agreed on.
+The current local MVP is tracked in issues #3 and #4. Content detection and launch at login are later
+work. Open a GitHub issue to report a bug or propose a feature; keep experimental effects separate
+from the window-following and clipping logic.
 
 Keep pull requests focused. Include what changed, how you checked it, and any manual checks that remain pending. Add screenshots when they help explain a visual change.

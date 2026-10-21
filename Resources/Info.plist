@@ -28,5 +28,7 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Craig Waterman</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Nightprism uses window information to attach dimming overlays to the windows you choose. This prototype does not record or save screen images.</string>
 </dict>
 </plist>
